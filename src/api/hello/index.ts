@@ -6,5 +6,5 @@ enum API {
 }
 
 export const exampleAPI = async () => {
-    return request.get<exampleModel>({ url: API.example })
+    return await request.get<exampleModel>({ url: API.example })
 }
