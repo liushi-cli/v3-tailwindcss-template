@@ -23,9 +23,9 @@ class Request {
             ({
                 runWhen: ((config: InternalAxiosRequestConfig) => {
                     /**
-                     * set your headers
+                     * config your headers
                      */
-                    if (getToken()) {
+                    if (import.meta.env.VITE_APP_TOKEN_KEY && getToken()) {
                         config.headers[import.meta.env.VITE_APP_TOKEN_KEY] = getToken()
                     }
                     return true
