@@ -2,7 +2,7 @@ import request from '@/utils/axios/axios'
 import { exampleModel } from '../types/hello'
 
 enum API {
-    example = '/hotlist?type=history'
+    example = ''
 }
 
 export const exampleAPI = async () => {

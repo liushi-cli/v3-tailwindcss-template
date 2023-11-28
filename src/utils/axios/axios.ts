@@ -1,9 +1,9 @@
 import axios, { AxiosResponse, AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig, AxiosInstance } from 'axios';
 import { HttpCodeConfig } from './httpCode';
-import { ResponseModel, uploadFileItemModel } from './types/index'
+import { ResponseModel, UploadFileItemModel, UploadRequestConfig } from './types/index'
 import { getToken } from '../token/index'
 
-class Request {
+class HttpRequest {
     service: AxiosInstance
 
     constructor() {
@@ -13,60 +13,72 @@ class Request {
         });
 
         this.service.interceptors.request.use(
-            (success: InternalAxiosRequestConfig) => {
-                return success
+            (config: InternalAxiosRequestConfig) => {
+                /**
+                 * set your config
+                 */
+                if (import.meta.env.VITE_APP_TOKEN_KEY && getToken()) {
+                    config.headers[import.meta.env.VITE_APP_TOKEN_KEY] = getToken()
+                }
+                return config
             },
             (error: AxiosError) => {
                 console.log('requestError: ', error)
                 return Promise.reject(error);
             },
-            ({
+            {
+                synchronous: true, // Async ? default value is true, means 
                 runWhen: ((config: InternalAxiosRequestConfig) => {
-                    /**
-                     * config your headers
-                     */
-                    if (import.meta.env.VITE_APP_TOKEN_KEY && getToken()) {
-                        config.headers[import.meta.env.VITE_APP_TOKEN_KEY] = getToken()
-                    }
+                    // do something
+
+                    // if return true, axios will execution interceptor method
                     return true
                 })
-            })
+            }
         );
 
         this.service.interceptors.response.use(
-            (response: any) => {
+            (response: AxiosResponse<ResponseModel>): AxiosResponse['data'] => {
                 const { data } = response
                 const { code } = data
-                if (code && code !== HttpCodeConfig.success) {
-                    switch (code) {
-                        case HttpCodeConfig.notFound:
-                            // the way to handle this code
-                            break;
-                        case HttpCodeConfig.noPermission:
-                            // the method to handle this code
-                            break;
-                        default:
-                            break;
+                if (code) {
+                    if (code != HttpCodeConfig.success) {
+                        switch (code) {
+                            case HttpCodeConfig.notFound:
+                                // the method to handle this code
+                                break;
+                            case HttpCodeConfig.noPermission:
+                                // the method to handle this code
+                                break;
+                            default:
+                                break;
+                        }
+                        return Promise.reject(data.message)
+                    } else {
+                        return data
                     }
                 } else {
-                    return data
+                    return Promise.reject('Error! code missing!')
                 }
             },
-            (error: AxiosError) => {
+            (error: any) => {
                 return Promise.reject(error);
             }
         );
     }
 
-    request<T = any>(config: AxiosRequestConfig) {
+    request<T = any>(config: AxiosRequestConfig): Promise<ResponseModel<T>> {
+        /**
+         * TODO: execute other methods according to config
+         */
         return new Promise((resolve, reject) => {
             try {
-                this.service.request(config)
-                    .then((res: AxiosResponse<ResponseModel<T>>) => {
-                        const { data } = res.data
-                        resolve(data as Promise<T>)
+                this.service.request<ResponseModel<T>>(config)
+                    .then((res: AxiosResponse['data']) => {
+                        resolve(res as ResponseModel<T>);
                     })
                     .catch((err) => {
+                        // do something
                         reject(err)
                     })
             } catch (err) {
@@ -75,30 +87,37 @@ class Request {
         })
     }
 
-    get<T = any>(config: AxiosRequestConfig): Promise<T> {
-        return this.service.request({ method: 'GET', ...config })
+    get<T = any>(config: AxiosRequestConfig): Promise<ResponseModel<T>> {
+        return this.request({ method: 'GET', ...config })
     }
-    post<T = any>(config: AxiosRequestConfig): Promise<T> {
-        return this.service.request({ method: 'POST', ...config })
+    post<T = any>(config: AxiosRequestConfig): Promise<ResponseModel<T>> {
+        return this.request({ method: 'POST', ...config })
     }
-    put<T = any>(config: AxiosRequestConfig): Promise<T> {
-        return this.service.request({ method: 'PUT', ...config })
+    put<T = any>(config: AxiosRequestConfig): Promise<ResponseModel<T>> {
+        return this.request({ method: 'PUT', ...config })
     }
-    delete<T = any>(config: AxiosRequestConfig): Promise<T> {
-        return this.service.request({ method: 'DELETE', ...config })
+    delete<T = any>(config: AxiosRequestConfig): Promise<ResponseModel<T>> {
+        return this.request({ method: 'DELETE', ...config })
     }
-    upload<T = any>(fileItem: uploadFileItemModel, config: AxiosRequestConfig): Promise<T> {
+    upload<T = string>(fileItem: UploadFileItemModel, config?: UploadRequestConfig): Promise<ResponseModel<T>> | null {
+        if (!import.meta.env.VITE_UPLOAD_URL) return null
+
         let fd = new FormData()
         fd.append(fileItem.name, fileItem.value)
-        let headers = { 'Content-Type': 'multipart/form-data', ...config.headers }
-        delete config.headers
-        /**
-         *  If the URL of the uploaded file is globally unique, you can configure it in the environment variable and set it here
-         *  like: config.headers.url = import.meta.env.VITE_UPLOAD_URL || config.headers.url
-         */
-        return this.service.request({ method: 'POST', headers, data: fd, ...config })
+        let configCopy: UploadRequestConfig
+        if (!config) {
+            configCopy = {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            }
+        } else {
+            config.headers!['Content-Type'] = 'multipart/form-data'
+            configCopy = config
+        }
+        return this.request({ url: import.meta.env.VITE_UPLOAD_URL, data: fd, ...configCopy })
     }
 }
 
-const httpRequest = new Request()
+const httpRequest = new HttpRequest()
 export default httpRequest;

@@ -1,3 +1,4 @@
+import { AxiosRequestConfig } from 'axios'
 export interface ResponseModel<T = any> {
     success: boolean;
     message: string | null;
@@ -5,7 +6,13 @@ export interface ResponseModel<T = any> {
     data: T;
 }
 
-export interface uploadFileItemModel {
+export interface UploadFileItemModel {
     name: string,
     value: string | Blob
 }
+
+
+/**
+ * customize your uploadRequestConfig
+ */
+export type UploadRequestConfig = Omit<AxiosRequestConfig, 'url' | 'data'> 

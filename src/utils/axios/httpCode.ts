@@ -1,4 +1,4 @@
-// set http code cofig
+// set code cofig
 export enum HttpCodeConfig {
     success = 200,
     notFound = 404,
